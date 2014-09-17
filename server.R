@@ -120,7 +120,7 @@ shinyServer( function(input, output, session) {
   )
 
   .reactive_filename <- reactive({
-    sprintf("SFAB-%s-%s-%s.csv", str_replace(.selected_parameter(), "\\.", ""),
+    sprintf("SFAB-%s-%s-%s.csv", str_replace_all(.selected_parameter(), "[^A-Za-z0-9]", ""),
             format(min(.selected_dates()), "%Y%m%d"), format(max(.selected_dates()), "%Y%m%d"))
   })
 

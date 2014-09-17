@@ -5,22 +5,8 @@
 #
 
 library(shiny)
-library(shinyIncubator)
 
-lapply_with_progress <- function(X, FUN, ...)
-{
-  env <- environment()
-  assign("counter", 0, envir = env)
-  wrapper <- function (...) {
-    i <- get("counter", envir = env)
-    assign("counter", i + 1 , envir = env)
-    setProgress(value = i + 1, message = "Updating, please wait", detail = "Fetching data ...")
-    FUN(...)
-  }
-  lapply(X, wrapper, ...)
-}
-
-shinyServer( function(input, output, session) {
+shinyServer( function (input, output, session) {
 
   .selected_parameter <- reactive({
     factor(input$parameter, levels = PARAMETERS, labels = names(PARAMETERS))
@@ -70,14 +56,10 @@ shinyServer( function(input, output, session) {
       select(site_id = site, site_name = name, start, value, parameter = variable, units, quality)
   }
 
-  rbindapply <- function (X, FUN, ...) {
-    withProgress(session, min = 1, max = length(X), {
-      do.call(rbind, lapply_with_progress(X, FUN, ...))
-    })
-  }
-
   .parsed_data <- reactive({
-    rbindapply(.selected_dates(), get_date, .selected_parameter(), .units())
+    process <- lapply_with_progress(session, message = "Updating, please wait", detail = "Fetching data ...")
+    chunks <- process(.selected_dates(), get_date, .selected_parameter(), .units())
+    do.call(rbind, chunks)
   })
 
   .site_tbl <- reactive({

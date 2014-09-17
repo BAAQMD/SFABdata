@@ -35,7 +35,7 @@ PARAM_UNITS <- c(
   "PM25HR" = "001",
   "BC" = "001")
 
-cached <- function(file, expr, cache_dir = "cache", compress = "xz", verbose = TRUE) {
+cached <- function (file, expr, cache_dir = "cache", compress = "xz", verbose = TRUE) {
   file <- normalizePath(file.path(cache_dir, file), mustWork = FALSE)
   if (!file.exists(file)) {
     if (verbose) message("[cached] miss:", file)
@@ -46,4 +46,19 @@ cached <- function(file, expr, cache_dir = "cache", compress = "xz", verbose = T
     obj <- readRDS(file)
   }
   return(obj)
+}
+
+lapply_with_progress <- function (session, message, detail) {
+  require(shinyIncubator)
+  function (X, FUN, ...) {
+    env <- environment()
+    assign("counter", 0, envir = env)
+    wrapper <- function (...) {
+      i <- get("counter", envir = env)
+      assign("counter", i + 1 , envir = env)
+      setProgress(value = i + 1, message = message, detail = detail)
+      FUN(...)
+    }
+    withProgress(session, min = 1, max = length(X), lapply(X, wrapper, ...))
+  }
 }

@@ -1,22 +1,49 @@
 suppressPackageStartupMessages({
-  library(dplyr)  # install.packages("dplyr")
-  library(tidyr)  # install.packages("tidyr", type="source")
-  library(httr)   # install_github("hadley/httr")
-  library(rvest)  # install_github("hadley/rvest")
+  library(dplyr)     # install.packages("dplyr")
+  library(tidyr)     # install.packages("tidyr")
+  library(httr)      # install.packages("httr")
+  library(lubridate) # install.packages("lubridate")
+  library(stringr)   # install.packages("stringr")
+  library(ggplot2)   # install.packages("ggplot2")
+  library(digest)
 })
 
+TODAY <- as.Date(Sys.time())
+
+LST <- "America/Los_Angeles"
+
 QA_FLAGS <- c(
-  "Valid observation" = "0",
-  "The data supplier marked the observation as suspect - but it is still valid" = "1",
-  "The automated qa routine judged the observation questionable and invalid" = "2",
-  "The automated qa routine judged the observation invalid" = "3",
-  "The data supplier flagged the observation invalid" = "4",
-  "The observation was flagged invalid manually" = "5")
+  "Valid" = "0",
+  "Valid, flagged by data supplier" = "1",
+  "Uncertain, flagged by QA routine" = "2",
+  "Invalid, flagged by QA routine" = "3",
+  "Invalid, flagged by data supplier" = "4",
+  "Invalid, flagged manually" = "5")
 
 PARAMETERS <- c(
   "Ozone" = "OZONE",
-  "PM2.5" = "PM25HR")
+  "PM2.5" = "PM25HR",
+  "Black Carbon" = "BC")
 
 UNITS <- c(
+  "ug/m3" = "001",
   "ppm" = "007",
   "ppb" = "008")
+
+PARAM_UNITS <- c(
+  "OZONE" = "008",
+  "PM25HR" = "001",
+  "BC" = "001")
+
+cached <- function(file, expr, cache_dir = "cache", compress = "xz", verbose = TRUE) {
+  file <- normalizePath(file.path(cache_dir, file), mustWork = FALSE)
+  if (!file.exists(file)) {
+    if (verbose) message("[cached] miss:", file)
+    if (!file.exists(dn <- dirname(file))) dir.create(dn, recursive = TRUE)
+    saveRDS(obj <- force(expr), file = file, compress = compress)
+  } else {
+    if (verbose) message("[cached] hit:", file)
+    obj <- readRDS(file)
+  }
+  return(obj)
+}

@@ -1,6 +1,7 @@
-.Rmd
+.DS_Store
 .Rproj.user
 .Rhistory
 .RData
+.Rmd
 cache/
 shinyapps/

@@ -9,11 +9,11 @@ library(shiny)
 shinyServer( function (input, output, session) {
 
   .selected_parameter <- reactive({
-    factor(input$parameter, levels = PARAMETERS, labels = names(PARAMETERS))
+    categorical(input$parameter, choices = PARAMETERS)
   })
 
   .units <- reactive({
-    factor(PARAM_UNITS[.selected_parameter()], levels = UNITS, labels = names(UNITS))
+    categorical(PARAM_UNITS[.selected_parameter()], choices = UNITS)
   })
 
   .selected_dates <- reactive({
@@ -21,7 +21,7 @@ shinyServer( function (input, output, session) {
   })
 
   .selected_sites <- reactive({
-    input$sites
+    categorical(input$sites, choices = .SITES())
   })
 
   get_date <- function (date, parameter, units) {
@@ -30,14 +30,15 @@ shinyServer( function (input, output, session) {
       download = "y",
       param = PARAMETERS[parameter], units = UNITS[units], statistic = "DAVG",
       year = year(date), mon = month(date), day = mday(date), hours = "all",
-      county_name = "--COUNTY--", basin = "SFB-San Francisco Bay", latitude = "--PART OF STATE--",
-      report = "HVAL", order = "basin,county_name,s.name",
+      county_name = "--COUNTY--", basin = "SFB-San Francisco Bay",
+      latitude = "--PART OF STATE--", report = "HVAL",
+      order = "basin,county_name,s.name",
       submit = "Retrieve Data", ptype = "aqd")
 
     cache_key <- digest(query, "sha1", raw = FALSE)
 
     response <- cached(
-      file.path(substr(cache_key, 1, 3), substr(cache_key, 4, 6), cache_key), # hash in ASCII format
+      file.path(substr(cache_key, 1, 3), substr(cache_key, 4, 6), cache_key),
       GET("http://www.arb.ca.gov/aqmis2/display.php", query = query))
 
     stop_for_status(response)
@@ -50,28 +51,36 @@ shinyServer( function (input, output, session) {
       mutate_each(funs(str_trim)) %>%
       mutate(start = ymd(date, tz = LST) + 3600 * extract_numeric(start_hour),
              value = extract_numeric(value),
-             parameter = factor(variable, levels = PARAMETERS, labels = names(PARAMETERS)),
-             #units = factor(units, levels = UNITS, labels = names(UNITS)),
-             quality = factor(quality, levels = QA_FLAGS, labels = names(QA_FLAGS))) %>%
+             parameter = categorical(variable, choices = PARAMETERS),
+             #units = categorical(units, choices = UNITS),
+             quality = categorical(quality, choices = QA_FLAGS)) %>%
       select(site_id = site, site_name = name, start, value, parameter, quality)
   }
 
   .parsed_data <- reactive({
-    process <- lapply_with_progress(session, message = "Updating, please wait", detail = "Fetching data ...")
+    msg <- "Updating, please wait"
+    detail <- "Fetching data ..."
+    process <- lapply_with_progress(session, msg, detail)
     chunks <- process(.selected_dates(), get_date, .selected_parameter(), .units())
     do.call(rbind, chunks)
   })
 
   .site_tbl <- reactive({
-    site_tbl <- .parsed_data() %>% select(site_id, site_name) %>% unique()
-    SITES <<- with(site_tbl, setNames(site_id, site_name))
+
+  })
+
+  .SITES <- reactive({
+    SITES <<- .parsed_data() %>%
+      select(site_id, site_name) %>%
+      unique() %>%
+      with(setNames(site_id, site_name))
     updateSelectizeInput(session, 'sites', choices = SITES)
-    site_tbl
+    SITES
   })
 
   .data_tbl <- reactive({
     .parsed_data() %>%
-      mutate(site = factor(site_id, levels = .site_tbl()$site_id, labels = .site_tbl()$site_name)) %>%
+      mutate(site = categorical(site_id, choices = .SITES())) %>%
       select(-site_id, -site_name)
   })
 
@@ -79,8 +88,7 @@ shinyServer( function (input, output, session) {
     if (length(.selected_sites()) == 0) {
       .data_tbl()
     } else {
-      selected_site_tbl <- .site_tbl() %>% filter(site_id %in% .selected_sites())
-      .data_tbl() %>% semi_join(selected_site_tbl %>% select(site = site_name, site_id), by = "site")
+      .data_tbl() %>% filter(site %in% .selected_sites())
     }
   })
 
@@ -96,7 +104,7 @@ shinyServer( function (input, output, session) {
     add_axis("y", title = "Reported 1h value") %>%
     bind_shiny("ggvis_plot")
 
-   .reactive_filename <- reactive({
+  .reactive_filename <- reactive({
     sprintf("SFAB-%s-%s-%s.csv", str_replace_all(.selected_parameter(), "[^A-Za-z0-9]", ""),
             format(min(.selected_dates()), "%Y%m%d"), format(max(.selected_dates()), "%Y%m%d"))
   })
@@ -106,7 +114,7 @@ shinyServer( function (input, output, session) {
       .reactive_filename()
     },
     content = function (file) {
-      write.csv(.filtered_data_tbl(), file = file, row.names = FALSE)
+      write.csv(.data_tbl(), file = file, row.names = FALSE)
     }
   )
 

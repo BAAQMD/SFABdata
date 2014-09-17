@@ -37,6 +37,10 @@ PARAM_UNITS <- c(
   "PM25HR" = "001",
   "BC" = "001")
 
+categorical <- function (x, choices) {
+  factor(x, levels = choices, labels = names(choices))
+}
+
 cached <- function (file, expr, cache_dir = "cache", compress = "xz", verbose = FALSE) {
   file <- normalizePath(file.path(cache_dir, file), mustWork = FALSE)
   if (!file.exists(file)) {

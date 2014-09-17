@@ -50,10 +50,10 @@ shinyServer( function (input, output, session) {
       mutate_each(funs(str_trim)) %>%
       mutate(start = ymd(date, tz = LST) + 3600 * extract_numeric(start_hour),
              value = extract_numeric(value),
-             variable = factor(variable, levels = PARAMETERS, labels = names(PARAMETERS)),
-             units = factor(units, levels = UNITS, labels = names(UNITS)),
+             parameter = factor(variable, levels = PARAMETERS, labels = names(PARAMETERS)),
+             #units = factor(units, levels = UNITS, labels = names(UNITS)),
              quality = factor(quality, levels = QA_FLAGS, labels = names(QA_FLAGS))) %>%
-      select(site_id = site, site_name = name, start, value, parameter = variable, units, quality)
+      select(site_id = site, site_name = name, start, value, parameter, quality)
   }
 
   .parsed_data <- reactive({
@@ -84,24 +84,19 @@ shinyServer( function (input, output, session) {
     }
   })
 
-  output$tsPlot <- renderPlot({
-    .filtered_data_tbl() %>%
-      qplot(start - dhours(0.5), value, geom = "line", color = site, data = .) +
-      scale_x_datetime(LST, expand = c(0, 0)) +
-      scale_y_continuous(sprintf("%s, %s", .selected_parameter(), .units())) +
-      expand_limits(y = 0) +
-      expand_limits(x = as.POSIXct(TODAY + ddays(1) - dminutes(1))) +
-      theme(legend.position = "bottom", axis.title.x = element_blank(),
-            axis.title.y = element_text(vjust = 1.0)) +
-      guides(color = guide_legend("", nrow = 7, title.position = "top"))
-  }, height = 400)
+  .y_axis_title <- reactive({
+    str_c(.selected_parameter(), ", ", .units())
+  })
 
-  output$tsData <- renderDataTable(
-    .filtered_data_tbl(),
-    options = list(iDisplayLength = 10)
-  )
+  .filtered_data_tbl %>%
+    ggvis(x = ~start, y = ~value, stroke = ~site) %>%
+    set_options(height = 300) %>%
+    layer_lines() %>%
+    add_axis("x", title = "Timestamp (hour beginning)") %>%
+    add_axis("y", title = "Reported 1h value") %>%
+    bind_shiny("ggvis_plot")
 
-  .reactive_filename <- reactive({
+   .reactive_filename <- reactive({
     sprintf("SFAB-%s-%s-%s.csv", str_replace_all(.selected_parameter(), "[^A-Za-z0-9]", ""),
             format(min(.selected_dates()), "%Y%m%d"), format(max(.selected_dates()), "%Y%m%d"))
   })

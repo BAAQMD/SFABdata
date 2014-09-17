@@ -4,13 +4,15 @@ suppressPackageStartupMessages({
   library(httr)      # install.packages("httr")
   library(lubridate) # install.packages("lubridate")
   library(stringr)   # install.packages("stringr")
-  library(ggplot2)   # install.packages("ggplot2")
-  library(digest)
+  library(ggvis)     # install.packages("ggvis")
+  library(digest)    # install.packages("digest")
 })
 
 TODAY <- as.Date(Sys.time())
 
 LST <- "America/Los_Angeles"
+
+EPOCH <- as.POSIXct("1970-01-01")
 
 QA_FLAGS <- c(
   "Valid" = "0",
@@ -21,9 +23,9 @@ QA_FLAGS <- c(
   "Invalid, flagged manually" = "5")
 
 PARAMETERS <- c(
-  "Ozone" = "OZONE",
-  "PM2.5" = "PM25HR",
-  "Black Carbon" = "BC")
+  "Ozone (ppb)" = "OZONE",
+  "PM2.5 (ug/m3)" = "PM25HR",
+  "Black Carbon (ug/m3)" = "BC")
 
 UNITS <- c(
   "ug/m3" = "001",
